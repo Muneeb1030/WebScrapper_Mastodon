@@ -25,5 +25,24 @@ class MastodonSpider(Spider):
         self.driver.maximize_window()
         self.driver.get("https://mastodon.social/explore")
         
+        self.CreateDirectories()
         
         self.driver.close()
+
+    
+    
+
+
+
+    def CreateDirectories(self):
+        output_directory = 'output_data'
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
+            
+        articles_sub_directory = f'{output_directory}/detailed_news_articles'
+        if not os.path.exists(articles_sub_directory):
+            os.makedirs(articles_sub_directory)  
+        
+        images_sub_directory = f'{output_directory}/news_articles_Images'
+        if not os.path.exists(images_sub_directory):
+            os.makedirs(images_sub_directory) 

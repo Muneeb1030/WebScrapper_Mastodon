@@ -11,6 +11,7 @@ import os
 import requests
 import re
 import pandas as pd
+from datetime import date
 
 chrome_driver_path = r"D:\Projects\Assignments\DataScience\Web Scrapers\chromedriver.exe"
 
@@ -24,13 +25,42 @@ class MastodonSpider(Spider):
         self.driver = webdriver.Chrome(service=self.service)
         self.driver.maximize_window()
         self.driver.get("https://mastodon.social/explore")
+        self.Pages = self.driver.find_elements(By.XPATH,"//*[@class = 'account__section-headline']//a")
         
-        self.CreateDirectories()
+        #self.CreateDirectories()
+        self.pasrse_HashTags(self.Pages[1])
         
         self.driver.close()
 
     
-    
+    def pasrse_HashTags(self,page):
+        self.driver.get(page.get_attribute("href"))
+        sleep(3)
+        
+        CSVPath = os.path.join('output_data\\HashTags.csv')
+        
+        try:
+            df = pd.read_csv(CSVPath)
+        except FileNotFoundError:
+            df = pd.DataFrame(columns=['HashTag', 'Trending','Date'])
+
+        Items = self.driver.find_elements(By.CLASS_NAME, "trends__item")
+        new_data_list = []
+        
+        for item in Items:
+            new_data = {
+                'HashTag': item.find_element(By.XPATH, './/*[@class="trends__item__name"]/a').text,
+                'Trending': item.find_element(By.XPATH, './/*[@class="trends__item__name"]/span').text,
+                'Date': date.today().strftime("%B %d, %Y")
+            }
+            new_data_list.append(new_data)
+
+        if new_data_list:
+            df = pd.concat([df, pd.DataFrame(new_data_list)], ignore_index=True)
+        
+        df.to_csv(CSVPath, index=False,mode='a', header=not pd.io.common.file_exists(CSVPath))
+        self.driver.back()
+        sleep(3)
 
 
 

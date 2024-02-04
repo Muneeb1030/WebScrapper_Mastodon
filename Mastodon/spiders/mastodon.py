@@ -20,27 +20,30 @@ class MastodonSpider(Spider):
     name = "mastodon"
     allowed_domains = ["mastodon.social"]
     start_urls = ["https://mastodon.social/explore"]
-    new_entry_list =[]
+    
+    new_entry_list = []
+    counterfornoContent = 0
+    
     def parse(self,response):
         self.service = Service(chrome_driver_path)
         self.driver = webdriver.Chrome(service=self.service)
         self.driver.maximize_window()
-        self.driver.get("https://mastodon.social/explore")
+        self.driver.get("https://mastodon.social/explore/")
+        
         self.Pages = WebDriverWait(self.driver, 5).until(
-        EC.presence_of_all_elements_located((By.XPATH,"//*[@class = 'account__section-headline']//a")))
+            EC.presence_of_all_elements_located((By.XPATH,"//*[@class = 'account__section-headline']//a")))
         
         self.CreateDirectories()
-        #self.pasrse_HashTags(self.Pages[1])
+        self.pasrse_HashTags(self.Pages[1])
+        sleep(2)
+        self.parse_News(self.Pages[2])
+        sleep(1)
         self.Scrolling(self.Pages[0])
-        #self.parse_Timeline()
-        
         
         self.driver.close()
    
     def Scrolling(self,page):
         self.driver.get(page.get_attribute("href"))
-        
-        CSVPath = os.path.join('output_data\\Timeline\\ScrappedTimeline.csv')
         
         self.count = 1;
         Posts = WebDriverWait(self.driver, 5).until(
@@ -54,12 +57,23 @@ class MastodonSpider(Spider):
                     
                     sleep(2)
                     self.count+=1
-                    self.parse_Timeline(target_element, CSVPath)
+                    try:
+                        content = target_element.find_element(By.CLASS_NAME,'status__content').text
+                        content = ' '.join(content.split())
+                    except:
+                        content ="None"
+                    
+                    if content == "":
+                        content = f"None_{self.count}"
+                        
+                    self.parse_Timeline(target_element,content)
+                    self.OpenPost(target_element,content)
                 except NoSuchElementException:
                     scroll =False
                     break
 
-    def parse_Timeline(self, post,Path):
+    def parse_Timeline(self, post, content):
+        CSVPath = os.path.join('output_data\\Timeline\\ScrappedTimeline.csv')
         
         try:
             Author = post.find_element(By.XPATH,'.//*[@class="display-name"]/span').text
@@ -76,26 +90,28 @@ class MastodonSpider(Spider):
         except:
             ActiveTimeWhenScrapped="None"
         
-        try:
-            content = post.find_element(By.CLASS_NAME,'status__content').text
-            content = ' '.join(content.split())
-        except:
-            content ="None"
         
+            
         hash_tags = self.extract_tags(post.find_element(By.CLASS_NAME, 'status__wrapper').get_attribute('aria-label'))  
         
         try:
             Reply = post.find_element(By.XPATH,'.//*[@class = "status__action-bar"]/button[@title="Reply"]').text
+            if Reply == "":
+               Reply = "0"
         except:
             Reply="0"
             
         try:
             Boost =  post.find_element(By.XPATH,'.//*[@class = "status__action-bar"]/button[@title="Boost"]').text
+            if Boost == "":
+               Boost = "0"
         except:
             Boost="0"
             
         try:
             Favorite = post.find_element(By.XPATH,'.//*[@class = "status__action-bar"]/button[@title="Favorite"]').text
+            if Favorite == "":
+               Favorite="0" 
         except:
             Favorite="0"
          
@@ -110,7 +126,7 @@ class MastodonSpider(Spider):
                 media_url = "None"  
                 media_alt = "None"
 
-        if media_alt != "None":
+        if media_alt != "None" and media_alt is not None:
             media_alt= ' '.join(media_alt.split())
                  
         new_entry = {
@@ -129,15 +145,113 @@ class MastodonSpider(Spider):
         if media_url != "None":
             self.download_image(media_url,content[:20],os.path.join('output_data\\Timeline'))
 
+        
         if self.count % 20 == 0:
-            print(self.new_entry_list)
             try:
-              df = pd.read_csv(Path)
+              df = pd.read_csv(CSVPath)
             except FileNotFoundError:
               df = pd.DataFrame(columns=['Author', 'UploadTime','ActiveTimeWhenScrapped','Title','Tags','Reply','Boost','Favorite','ThumbnailDesc','ThumbnailURL']) 
             df = pd.concat([df,pd.DataFrame(self.new_entry_list)], ignore_index=True)
-            df.to_csv(Path, index=False, mode='a', header=not pd.io.common.file_exists(Path))
+            df.to_csv(CSVPath, index=False, mode='a', header=not pd.io.common.file_exists(CSVPath))
+            
             self.new_entry_list.clear()
+
+    def OpenPost(self, post,Title):
+        post.find_element(By.XPATH,'.//*[@class = "status__action-bar"]/button[@title="More"]').click()
+        sleep(3)
+        EntryList = [] 
+        self.driver.find_element(By.CLASS_NAME,'dropdown-menu__item').click()
+        sleep(3)       
+        try:
+            Posts = WebDriverWait(self.driver, 5).until(
+            EC.presence_of_all_elements_located((By.CLASS_NAME,'status__wrapper')))
+            for reaction in Posts:
+                
+                try:
+                    Author = reaction.find_element(By.XPATH,'.//*[@class="display-name"]/span').text
+                except:
+                    Author="None"
+
+                try:
+                    UploadTime = reaction.find_element(By.TAG_NAME,'time').get_attribute('title')
+                except:
+                    UploadTime="None"
+                
+                try:
+                    ActiveTimeWhenScrapped = reaction.find_element(By.TAG_NAME,'time').text
+                except:
+                    ActiveTimeWhenScrapped="None"
+                
+                try:
+                    content = reaction.find_element(By.CLASS_NAME,'status__content').text
+                    content = ' '.join(content.split())
+                except:
+                    content ="None"
+                
+                try:
+                    Reply = reaction.find_element(By.XPATH,'.//*[@class = "status__action-bar"]/button[@title="Reply"]').text
+                    if Reply == "":
+                        Reply = "0"
+                except:
+                    Reply="0"
+                    
+                # try:
+                #     Boost =  reaction.find_element(By.XPATH,'.//*[@class = "status__action-bar"]/button[@title="Boost"]').text
+                #     if Boost == "":
+                #         Boost = "0"
+                # except:
+                #     Boost="0"
+                    
+                # try:
+                #     Favorite = reaction.find_element(By.XPATH,'.//*[@class = "status__action-bar"]/button[@title="Favorite"]').text
+                #     if Favorite == "":
+                #         Favorite="0" 
+                # except:
+                #     Favorite="0"
+                
+                # try:
+                #     media_url = reaction.find_element(By.CLASS_NAME, 'media-gallery').find_element(By.TAG_NAME, 'img').get_attribute('src')
+                #     media_alt = reaction.find_element(By.CLASS_NAME, 'media-gallery').find_element(By.TAG_NAME, 'img').get_attribute('alt')
+                # except NoSuchElementException:
+                #     try:
+                #         media_url = reaction.find_element(By.CLASS_NAME, 'media-gallery').find_element(By.TAG_NAME, 'video').get_attribute('src')
+                #         media_alt = reaction.find_element(By.CLASS_NAME, 'media-gallery').find_element(By.TAG_NAME, 'video').get_attribute('alt')
+                #     except NoSuchElementException:
+                #         media_url = "None"  
+                #         media_alt = "None"
+
+                # if media_alt != "None":
+                #     media_alt= ' '.join(media_alt.split())
+                 
+                new_entry = {
+                        'Author': Author,
+                        'UploadTime': UploadTime,
+                        'ActiveTimeWhenScrapped': ActiveTimeWhenScrapped,
+                        'Title': content,
+                        'Reply': Reply #,
+                        # 'Boost': Boost,
+                        # 'Favorite': Favorite,
+                        # 'ThumbnailDesc': media_alt,
+                        # 'ThumbnailURL': media_url
+                    }
+                EntryList.append(new_entry)
+                # if media_url != "None":
+                #     self.download_image(media_url,content[:20],os.path.join('output_data\\Timeline'))
+        except:
+            pass
+        
+        title = re.sub(r'[^\w\s]', '', Title[:20])
+        Path = os.path.join(f'output_data\\Timeline\\IndividualPost\\{title}.csv')
+        
+        try:
+            df = pd.read_csv(Path)
+        except FileNotFoundError:
+            df = pd.DataFrame(columns=['Author', 'UploadTime','ActiveTimeWhenScrapped','Title','Reply']) #,'Boost','Favorite','ThumbnailDesc','ThumbnailURL'
+        df = pd.concat([df,pd.DataFrame(EntryList)], ignore_index=True)
+        df.to_csv(Path, index=False, mode='a', header=not pd.io.common.file_exists(Path))
+        EntryList.clear()
+        
+        self.driver.back()   
         
     def extract_tags(self, text):
         pattern = r'^(.*?), (.+), (.+), (.+)$'
@@ -187,12 +301,13 @@ class MastodonSpider(Spider):
             df = pd.concat([df, pd.DataFrame(new_data_list)], ignore_index=True)
         df.to_csv(CSVPath, index=False,mode='a', header=not pd.io.common.file_exists(CSVPath))
         
-        self.parse_Timeline(self.Pages[0])
+        self.driver.back()
               
     def download_image(self, image_url, Title,Path):
         download = requests.get(image_url, stream=True)
 
         Title = re.sub(r'[^\w\s]', '', Title)
+        
         
         image_path = os.path.join(Path, f'{Title}.jpg')
 
@@ -227,7 +342,7 @@ class MastodonSpider(Spider):
         
         df.to_csv(CSVPath, index=False,mode='a', header=not pd.io.common.file_exists(CSVPath))
         
-        self.parse_News(self.Pages[2])
+        self.driver.back()
 
     def CreateDirectories(self):
         output_directory = 'output_data'
@@ -241,3 +356,7 @@ class MastodonSpider(Spider):
         images_sub_directory = f'{output_directory}/Timeline'
         if not os.path.exists(images_sub_directory):
             os.makedirs(images_sub_directory) 
+            
+        
+        if not os.path.exists('output_data\\Timeline\\IndividualPost'):
+            os.makedirs('output_data\\Timeline\\IndividualPost') 

@@ -18,7 +18,6 @@ from datetime import date
 # Specify the path to the Chrome driver executable
 chrome_driver_path = r"D:\Projects\Assignments\DataScience\Web Scrapers\chromedriver.exe"
 
-# Define the MastodonSpider class inheriting from Scrapy's Spider
 class MastodonSpider(Spider):
     name = "mastodon"
     allowed_domains = ["mastodon.social"]
@@ -28,13 +27,12 @@ class MastodonSpider(Spider):
     new_entry_list = []
     counter_for_no_content = 0 
     
-    # Define the parse method to start the scraping process
     def parse(self, response):
         # Set up the Chrome WebDriver
         self.service = Service(chrome_driver_path)
         self.driver = webdriver.Chrome(service=self.service)
         self.driver.maximize_window()
-        self.driver.get("https://mastodon.social/explore/")
+        self.driver.get(response.url)
         
         # Use WebDriverWait to ensure the presence of elements before proceeding
         self.Pages = WebDriverWait(self.driver, 5).until(

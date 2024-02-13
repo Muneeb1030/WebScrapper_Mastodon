@@ -46,7 +46,7 @@ This project is intended for educational purposes and strictly adheres to Mastod
 
 ## Additional Resources
 
-Explore the project in detail through my [Medium blog](YourMediumBlogLink), where I share insights, motivation, and in-depth explanations about the Mastodon Social Platform Scraper.
+Explore the project in detail through my [Medium blog](https://medium.com/@m.muneeb.ur.rehman.2000/exploring-mastodon-a-web-scraping-journey-with-scrapy-and-selenium-f96bf4af7029), where I share insights, motivation, and in-depth explanations about the Mastodon Social Platform Scraper.
 
 ## Contributors
 - M Muneeb ur Rehman

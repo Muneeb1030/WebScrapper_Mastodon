@@ -44,8 +44,14 @@ class MastodonSpider(Spider):
         # Call functions to parse hashtags, news, and perform scrolling
         self.parse_hashtags(self.Pages[1])
         sleep(2)
+        #Avoiding Stale Element Error
+        self.Pages = WebDriverWait(self.driver, 5).until(
+            EC.presence_of_all_elements_located((By.XPATH, "//*[@class = 'account__section-headline']//a")))
         self.parse_news(self.Pages[2])
         sleep(1)
+        #Avoiding Stale Element Error
+        self.Pages = WebDriverWait(self.driver, 5).until(
+            EC.presence_of_all_elements_located((By.XPATH, "//*[@class = 'account__section-headline']//a")))
         self.scrolling(self.Pages[0])
         
         # Close the Chrome WebDriver
